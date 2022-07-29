@@ -1,7 +1,7 @@
 {
     "name": "nox",
     "displayName": "Nox",
-    "description": "Nox tasks support.",
+    "description": "Nox tasks support for VS Code.",
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.69.0"
@@ -9,15 +9,20 @@
     "categories": [
         "Other"
     ],
+    "keywords": [
+        "nox",
+        "runners",
+        "tasks",
+        "python"
+    ],
     "activationEvents": [
-        "onCommand:nox.helloWorld"
+        "workspaceContains:noxfile.py"
     ],
     "main": "./dist/extension.js",
     "contributes": {
-        "commands": [
+        "taskDefinitions": [
             {
-                "command": "nox.helloWorld",
-                "title": "Hello World"
+                "type": "nox"
             }
         ]
     },
@@ -31,6 +36,9 @@
         "pretest": "npm run compile-tests && npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
         "test": "node ./out/test/runTest.js"
+    },
+    "dependencies": {
+        "fs-extra": "^10.1.0"
     },
     "devDependencies": {
         "@types/vscode": "^1.69.0",
