@@ -10,7 +10,7 @@ import {
     extensions,
     Uri,
 } from "vscode";
-import { traceError, traceLog } from "../log/logging";
+import { traceError, traceLog } from "./logging";
 
 export enum PythonEnvKind {
     Unknown = "unknown",

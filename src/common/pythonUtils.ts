@@ -1,8 +1,18 @@
-import * as path from "path";
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 import * as proc from "child_process";
-import { ShellExecution, Task, TaskScope, Uri } from "vscode";
+import {
+    CancellationToken,
+    ShellExecution,
+    Task,
+    TaskScope,
+    Uri,
+} from "vscode";
 import { getInterpreterDetails } from "./python";
 import { getWorkspaceFolder } from "./vscodeapi";
+import { traceError, traceLog } from "./logging";
+import { NOX_TASK_TYPE, SCRIPT_PATH } from "./constants";
 
 interface NoxTask {
     name: string;
@@ -14,13 +24,7 @@ interface NoxTasks {
     tasks: NoxTask[];
 }
 
-const SCRIPT_PATH = path.join(
-    path.dirname(__dirname),
-    "bundled",
-    "get_tasks.py"
-);
-
-export async function getNoxTasks(): Promise<Task[]> {
+export async function getNoxTasks(token: CancellationToken): Promise<Task[]> {
     const python = await getInterpreterDetails();
     if (!python.path || python.path.length === 0) {
         return Promise.resolve([]);
@@ -31,6 +35,11 @@ export async function getNoxTasks(): Promise<Task[]> {
     const noxRun = proc.spawn(command, args, { cwd: workspace?.uri.fsPath });
 
     const promise = new Promise<Task[]>((resolve, reject) => {
+        token.onCancellationRequested(() => {
+            noxRun.kill();
+            reject("Nox task provider cancelled");
+        });
+
         noxRun.stdout.on("data", (data) => {
             const noxTasks: NoxTasks = JSON.parse(data);
             if (
@@ -38,23 +47,23 @@ export async function getNoxTasks(): Promise<Task[]> {
                 noxTasks.error.length &&
                 noxTasks.error.length > 0
             ) {
-                noxTasks.error.forEach((err) => console.log(err));
+                noxTasks.error.forEach((err) => traceError(err));
             }
             resolve(
                 noxTasks.tasks.map(
                     (t) =>
                         new Task(
                             {
-                                type: "nox",
+                                type: NOX_TASK_TYPE,
                                 task: t.name,
                                 command: command,
                                 args: ["-m", "nox", "--session", t.name],
                                 detail: t.description,
-                                label: `nox: ${t.name}`,
+                                label: `${NOX_TASK_TYPE}: ${t.name}`,
                             },
                             TaskScope.Workspace,
                             t.name,
-                            "nox",
+                            NOX_TASK_TYPE,
                             new ShellExecution(
                                 `${command} -m nox --session ${t.name}`,
                                 {
@@ -66,6 +75,7 @@ export async function getNoxTasks(): Promise<Task[]> {
             );
         });
         noxRun.on("error", (err) => {
+            traceError(err);
             reject(err);
         });
     });
